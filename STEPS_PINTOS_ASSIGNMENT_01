@@ -1,0 +1,119 @@
+							
+							+---------------------------+
+							|     OPERATING SYSTEMS     |
+							| ASSIGNMENT 2: ALARM CLOCK |
+							|   DESIGN DOCUMENT         |
+							+---------------------------+
+							  INSTRUCTOR: Sir Ali Tahir
+				   
+	---- GROUP MEMBERS----
+
+	Hira Tanveer        193695
+	Haniya Huda	    197835
+	Ramlah Aamir Aziz   202564
+	Bia Chaudhry        184055   
+	 
+		BESE-7B
+
+----------------------------------------------------------------------------------------------------------------------------------------------
+
+							     ALARM CLOCK IMPLEMENTAIONS
+							     ==========================	
+
+
+Changes in timer.c:
+
+
+  - A global list of sleeping threads is created as:
+	-static struct list sleep_list;
+
+Changes in thread.h:
+
+
+  - For keeping track of a sleeping thread when woken up, we declared:
+	-int64_t sleep_time;
+
+
+  - When a thread calls timer_sleep(), it gets into the sleep list as:
+	-struct list_elem sleep_list_elem
+	
+
+---- ALGORITHMS WE USE----
+
+We reimplemented timer_sleep() in devices/timer.c, as it spins in a loop to check the current time and to call thread_yield() which wastes a lot of time, so we needed to avoid busy waiting. Hence we replaced thread_yield() with thread_block() with other functionalities as mentioned below:
+
+
+In timer_sleep()
+  - First Check ticks <=0, if yes then return
+  - Then enable the interrupts
+  - Get to the current thread by using thread_current() function
+  - Then set its (current thread's) sleep_time equal to the number of 
+    ticks it wants to sleep.
+  - Then insert the current thread in the global sleep list (i.e. static struct list sleep_list) in (ascending) order
+    
+In timer_interrupt():
+
+ --------------------------------------------------------------------------------------------------------------------------------------------
+|                 CODE
+|                 ====
+|
+|	/* Timer interrupt handler. */
+|	static void
+|	timer_interrupt (struct intr_frame *args UNUSED)
+|	{
+|	  ticks++;
+|	  /* Wake up sleeping threads that are eligible
+|	    i.e. sleep_time <= ticks */
+|	  wake_sleep();
+|	  thread_tick(); 
+|	}
+|
+|	/* Loops over the sleep list and wakes up eligible threads 
+|	  Terminates if a thread has greater sleep_time than current val of ticks
+|	  because sleep_list is ordered */
+|
+|	static void
+|	wake_sleep() 
+|	{
+|	    struct list_elem * e;
+|
+|	    for (e = list_begin(&sleep_list); e!=list_end(&sleep_list); e=list_next(e))
+|	    {
+|	      struct thread * thread = list_entry(e,struct thread, sleep_list_elem);   
+|	      if (thread->sleep_time <= timer_ticks())
+|	      {
+|		thread->sleep_time = 0;
+|		thread_unblock(thread);
+|		list_remove(e);
+|		
+|	      }
+|	      else break;
+|	    
+|	    }
+|
+|	}                                           
+|
+
+Here it:
+  - Increment ticks
+  - Then call to wake_sleep() having functionality:
+    - To Traverse the sleep_list
+    - For each element, checks if its sleep_time 
+      is <= (timer_ticks())
+    	- If yes, then set its sleep_time = 0, unblock it and
+      	  truncate it from the sleep_list 
+    	- else break
+    - Then a call to thread_ticks(), to makes sure that
+      current thread yeild the CPU if greater priority 
+      thread is woken up.
+    
+----------------------------------------------SUMMARY-----------------------------------------------------------------------------------------
+
+- Initialize ticks in timer.c as: static int64_t ticks;
+- In devices/timer.c edit timer_sleep() function
+- Define wake_threads() function.
+- Edit timer_interrupt().
+- In devices/timer.c define and initialize sleep_list
+- Iensert the thread to be slept in sleep_list
+
+
